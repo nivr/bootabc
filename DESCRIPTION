@@ -6,6 +6,9 @@ Authors@R:
            comment = c(ORCID = "YOUR-ORCID-ID"))
 Description: What the package does (one paragraph).
 License: MIT + file LICENSE
+Depends:
+    R (>= 4.0),
+    dplyr (>= 1.0.0)
 Suggests: 
     covr,
     testthat (>= 3.0.0)
