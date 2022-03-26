@@ -4,12 +4,13 @@
 \alias{bootstrap_measures}
 \title{Bootstrap customer data from an A/B-test}
 \usage{
-bootstrap_measures(input_data, bootstrap_iterations = 100, ...)
+bootstrap_measures(input_data_frame, bootstrap_iterations = 100, ...)
 }
 \arguments{
-\item{input_data}{A grouped data frame with one row per customer/visitor. It
-should contain a (grouped-by) column with the test variant and additional
-columns for each measure in the test for that customer/visitor.}
+\item{input_data_frame}{A grouped data frame with one row per
+customer/visitor. It should contain a (grouped-by) column with the test
+variant and additional columns for each measure in the test for that
+customer/visitor.}
 
 \item{bootstrap_iterations}{The number of bootstrap iterations to calculate,
 the default is 100.}
@@ -30,4 +31,12 @@ columns as defined in \code{...}
 }
 \description{
 Bootstrap customer data from an A/B-test
+}
+\examples{
+example_data <- data.frame(
+                x = rep(stats::runif(10),2),
+                group = c("A", "B")
+                ) \%>\%
+                group_by(group)
+bootstrap_measures(example_data, kpi1=mean(x))
 }

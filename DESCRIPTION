@@ -9,7 +9,10 @@ License: MIT + file LICENSE
 Depends:
     R (>= 4.0),
     dplyr (>= 1.0.0),
-    rlang (>= 1.0.0)
+    rlang (>= 1.0.0),
+    data.table (>= 1.14.2),
+    magrittr (>= 2.0.2),
+    dqrng (>= 0.3.0)
 Suggests: 
     covr,
     testthat (>= 3.0.0)
