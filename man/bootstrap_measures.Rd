@@ -15,8 +15,8 @@ customer/visitor.}
 \item{bootstrap_iterations}{The number of bootstrap iterations to calculate,
 the default is 100.}
 
-\item{...}{<\code{\link[dplyr:dplyr_data_masking]{data-masking}}> Name-value pairs of summary
-functions. The name will be the name of the variable in the result.
+\item{...}{<\code{\link[dplyr:dplyr_data_masking]{data-masking}}> Name-value pairs of
+summary functions. The name will be the name of the variable in the result.
 
 The value can be:
 \itemize{

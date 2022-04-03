@@ -27,7 +27,7 @@
 #'                 group_by(group)
 #'bootstrap_measures(example_data, kpi1=mean(x))
 #' @importFrom dplyr summarise group_vars group_keys count across
-#' @importFrom dplyr all_of bind_rows
+#' @importFrom dplyr all_of bind_rows is.grouped_df
 #' @importFrom data.table as.data.table data.table rbindlist
 #' @importFrom data.table merge.data.table :=
 #' @importFrom rlang enexprs
@@ -38,11 +38,12 @@ bootstrap_measures <- function(input_data_frame,
                                ...) {
   bootstrap_iteration <- NULL
 
-  if (!is.grouped_df(input_data_frame)) {
+  if (!dplyr::is.grouped_df(input_data_frame)) {
     stop("Your input data must be a grouped data.frame")
   }
 
   bootstrap_results <- data.frame()
+
   data_table <- data.table::as.data.table(input_data_frame)
 
   group_column <- dplyr::group_vars(input_data_frame)
@@ -79,6 +80,10 @@ bootstrap_measures <- function(input_data_frame,
 
   }
 
+  bootstrap_results <- bootstrap_results %>%
+  dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
+
+class(bootstrap_results) <- c("boot.strap",class(bootstrap_results))
 bootstrap_results
 }
 
@@ -101,4 +106,41 @@ bootstrap_results
       ")"
     )
   )
+}
+
+#' Division function for boot.strap objects
+#' @rdname /
+#' @export
+#' @importFrom purrr negate
+#' @importFrom dplyr select ungroup group_vars
+`/.boot.strap` <- function(numerator,denominator) {
+  if (!"boot.strap" %in% class(numerator)) stop("Cannot divide a non-boot.strap object by a boot.strap object.")
+  if (!("boot.strap" %in% class(denominator)) && !("numeric" %in% class(denominator))) stop("Can only divide a boot.strap object by a numeric or boot.strap object.")
+
+  group_column <- dplyr::group_vars(numerator)
+  numerator <- dplyr::ungroup(numerator)
+
+  numerator_numeric <- numerator %>%
+    dplyr::select(-bootstrap_iteration) %>%
+    dplyr::select(where(is.numeric))
+  numerator_nonnumeric <- numerator %>%
+    dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric)))
+  #select_if(purrr::negate(is.numeric))
+  if ("boot.strap" %in% class(denominator)) {
+    denominator <- dplyr::ungroup(denominator)
+    denominator_numeric <- denominator %>%
+      dplyr::select(-bootstrap_iteration) %>%
+      dplyr::select(where(is.numeric))
+    denominator_nonnumeric <- denominator %>%
+      dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric)))
+  } else {
+    denominator_numeric <- denominator
+    denominator_nonnumeric <- NULL
+  }
+
+  if ("numeric" %in% class(denominator)) return(cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),denominator)))
+
+  if (!identical(numerator_nonnumeric,denominator_nonnumeric)) stop("Non-numeric elements are not identical.")
+  cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),as.data.frame(denominator_numeric))) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
 }
