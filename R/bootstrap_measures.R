@@ -42,7 +42,7 @@ bootstrap_measures <- function(input_data_frame,
     stop("Your input data must be a grouped data.frame")
   }
 
-  bootstrap_results <- data.frame()
+  bootstrap_results <- new_boot_strap()
 
   data_table <- data.table::as.data.table(input_data_frame)
 
@@ -83,7 +83,7 @@ bootstrap_measures <- function(input_data_frame,
   bootstrap_results <- bootstrap_results %>%
   dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
 
-class(bootstrap_results) <- c("boot.strap",class(bootstrap_results))
+#class(bootstrap_results) <- c("boot_strap",class(bootstrap_results))
 bootstrap_results
 }
 
@@ -108,39 +108,90 @@ bootstrap_results
   )
 }
 
+new_boot_strap <- function(x = data.frame()) {
+  stopifnot(is.data.frame(x))
+  #structure(x, class = "secret")
+  class(x) <- c("boot_strap",class(x))
+  x
+}
+
+as_boot_strap <- function(x) {
+  stopifnot(is.data.frame(x))
+  class(x) <- c("boot_strap",class(x))
+  x
+}
+
 #' Division function for boot.strap objects
 #' @rdname /
 #' @export
 #' @importFrom purrr negate
 #' @importFrom dplyr select ungroup group_vars
-`/.boot.strap` <- function(numerator,denominator) {
-  if (!"boot.strap" %in% class(numerator)) stop("Cannot divide a non-boot.strap object by a boot.strap object.")
-  if (!("boot.strap" %in% class(denominator)) && !("numeric" %in% class(denominator))) stop("Can only divide a boot.strap object by a numeric or boot.strap object.")
+`/.boot_strap` <- function(numerator,denominator) {
+  if (!"boot_strap" %in% class(numerator)) stop("Cannot divide a non-boot.strap object by a boot_strap object.")
+  if (!("boot_strap" %in% class(denominator)) && !("numeric" %in% class(denominator))) stop("Can only divide a boot_strap object by a numeric or boot_strap object.")
 
   group_column <- dplyr::group_vars(numerator)
   numerator <- dplyr::ungroup(numerator)
 
   numerator_numeric <- numerator %>%
     dplyr::select(-bootstrap_iteration) %>%
-    dplyr::select(where(is.numeric))
+    dplyr::select(where(is.numeric)) %>%
+    as_boot_strap()
   numerator_nonnumeric <- numerator %>%
-    dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric)))
-  #select_if(purrr::negate(is.numeric))
-  if ("boot.strap" %in% class(denominator)) {
-    denominator <- dplyr::ungroup(denominator)
+    dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric))) %>%
+    as_boot_strap()
+  if ("boot_strap" %in% class(denominator)) {
+    denominator <- dplyr::ungroup(denominator) %>%
+      as_boot_strap()
     denominator_numeric <- denominator %>%
       dplyr::select(-bootstrap_iteration) %>%
-      dplyr::select(where(is.numeric))
+      dplyr::select(where(is.numeric)) %>%
+      as_boot_strap()
     denominator_nonnumeric <- denominator %>%
-      dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric)))
+      dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric))) %>%
+      as_boot_strap()
   } else {
     denominator_numeric <- denominator
     denominator_nonnumeric <- NULL
   }
 
-  if ("numeric" %in% class(denominator)) return(cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),denominator)))
+  if ("numeric" %in% class(denominator)) return(cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),denominator)))  %>%
+    as_boot_strap()
 
-  if (!identical(numerator_nonnumeric,denominator_nonnumeric)) stop("Non-numeric elements are not identical.")
+  #if (!identical(numerator_nonnumeric,denominator_nonnumeric)) stop("Non-numeric elements are not identical.")
+  if (!identical(sapply(numerator_nonnumeric,class),sapply(denominator_nonnumeric,class))) stop("Non-numeric elements are not identical.")
+  if (!identical(numerator_nonnumeric$bootstrap_iteration,denominator_nonnumeric$bootstrap_iteration)) stop("Arguments don't come from the same boot_strap")
   cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),as.data.frame(denominator_numeric))) %>%
-    dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
+    dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))  %>%
+    as_boot_strap()
+}
+
+#' @importFrom rlang .data
+.calc_ratios_of_combns <- function(.boot_strap) {
+  group_column <- dplyr::group_vars(.boot_strap)
+  comparisons <- .boot_strap %>%
+    dplyr::pull(group_column) %>%
+    unique() %>%
+    combn(2, simplify = FALSE)
+
+  boot_strap_ratio <- new_boot_strap()
+
+  for (comparison in comparisons) {
+    group_column <- dplyr::group_vars(.boot_strap)
+    comparison_left <- .boot_strap %>%
+      dplyr::filter(.data[[group_column]] == comparison[[1]]) %>%
+      as_boot_strap()
+    comparison_right <- .boot_strap %>%
+      dplyr::filter(.data[[group_column]] == comparison[[2]]) %>%
+      as_boot_strap()
+
+    boot_strap_ratio <- rbind(
+      boot_strap_ratio,
+      dplyr::mutate(
+        comparison_right / comparison_left,
+        !!group_column := paste0(comparison[[1]], " vs ", comparison[[2]])
+      )
+    )
+  }
+  as_boot_strap(boot_strap_ratio)
 }
