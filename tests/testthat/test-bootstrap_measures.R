@@ -41,3 +41,41 @@ test_that("Output has bootstrap_iterations*num_groups rows", {
     )
   ), bootstrap_iterations * num_groups)
 })
+
+test_that("bootstrap_measures calculation same as precomputed", {
+  kpi_names <- paste0("kpi_", letters[1:7])
+  expr <- rlang::parse_expr(
+    paste0(
+      "bootstrap_measures(dplyr::group_by(",
+      "example_data_frame,experiment_variant), ",
+      paste0(
+        kpi_names, "_aggr", " = ", "mean(", kpi_names, ")",
+        collapse = ", "
+      ),
+      ", bootstrap_iterations = 173",
+      ")"
+    )
+  )
+
+  dqrng::dqset.seed(20220404, stream = NULL)
+  test_boot_strap <- eval(expr)
+
+  expect_equal(test_boot_strap,
+               example_boot_strap)
+})
+
+test_that("boot_strap ratios output expected", {
+  expect_equal(
+    31 / 17,
+    .calc_ratios_of_combns(
+      as_boot_strap(group_by(
+        data.frame(
+          measurement = c(17, 31),
+          group = c("A", "Z"),
+          bootstrap_iteration = c(1, 1)
+        ),
+        group
+      ))
+    )$measurement
+  )
+})
