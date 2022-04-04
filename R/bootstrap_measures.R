@@ -83,7 +83,6 @@ bootstrap_measures <- function(input_data_frame,
   bootstrap_results <- bootstrap_results %>%
   dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
 
-#class(bootstrap_results) <- c("boot_strap",class(bootstrap_results))
 bootstrap_results
 }
 
@@ -110,14 +109,13 @@ bootstrap_results
 
 new_boot_strap <- function(x = data.frame()) {
   stopifnot(is.data.frame(x))
-  #structure(x, class = "secret")
-  class(x) <- c("boot_strap",class(x))
+  class(x) <- c("boot_strap", class(x))
   x
 }
 
 as_boot_strap <- function(x) {
   stopifnot(is.data.frame(x))
-  class(x) <- c("boot_strap",class(x))
+  class(x) <- c("boot_strap", class(x))
   x
 }
 
@@ -126,9 +124,18 @@ as_boot_strap <- function(x) {
 #' @export
 #' @importFrom purrr negate
 #' @importFrom dplyr select ungroup group_vars
-`/.boot_strap` <- function(numerator,denominator) {
-  if (!"boot_strap" %in% class(numerator)) stop("Cannot divide a non-boot.strap object by a boot_strap object.")
-  if (!("boot_strap" %in% class(denominator)) && !("numeric" %in% class(denominator))) stop("Can only divide a boot_strap object by a numeric or boot_strap object.")
+`/.boot_strap` <- function(numerator, denominator) {
+  if (!"boot_strap" %in% class(numerator)) {
+    stop(
+      "Cannot divide a non-boot_strap object by a boot_strap object."
+    )
+  }
+  if (!("boot_strap" %in% class(denominator)) &&
+    !("numeric" %in% class(denominator))) {
+    stop(
+      "Can only divide a boot_strap object by a numeric or boot_strap object."
+    )
+  }
 
   group_column <- dplyr::group_vars(numerator)
   numerator <- dplyr::ungroup(numerator)
@@ -138,7 +145,7 @@ as_boot_strap <- function(x) {
     dplyr::select(where(is.numeric)) %>%
     as_boot_strap()
   numerator_nonnumeric <- numerator %>%
-    dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric))) %>%
+    dplyr::select(bootstrap_iteration, where(purrr::negate(is.numeric))) %>%
     as_boot_strap()
   if ("boot_strap" %in% class(denominator)) {
     denominator <- dplyr::ungroup(denominator) %>%
@@ -148,21 +155,43 @@ as_boot_strap <- function(x) {
       dplyr::select(where(is.numeric)) %>%
       as_boot_strap()
     denominator_nonnumeric <- denominator %>%
-      dplyr::select(bootstrap_iteration,where(purrr::negate(is.numeric))) %>%
+      dplyr::select(bootstrap_iteration, where(purrr::negate(is.numeric))) %>%
       as_boot_strap()
   } else {
     denominator_numeric <- denominator
     denominator_nonnumeric <- NULL
   }
 
-  if ("numeric" %in% class(denominator)) return(cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),denominator)))  %>%
-    as_boot_strap()
+  if ("numeric" %in% class(denominator)) {
+    return(
+      cbind(
+        numerator_nonnumeric,
+        .Primitive("/")(as.data.frame(numerator_numeric), denominator)
+      )
+    ) %>%
+      as_boot_strap()
+  }
 
-  #if (!identical(numerator_nonnumeric,denominator_nonnumeric)) stop("Non-numeric elements are not identical.")
-  if (!identical(sapply(numerator_nonnumeric,class),sapply(denominator_nonnumeric,class))) stop("Non-numeric elements are not identical.")
-  if (!identical(numerator_nonnumeric$bootstrap_iteration,denominator_nonnumeric$bootstrap_iteration)) stop("Arguments don't come from the same boot_strap")
-  cbind(numerator_nonnumeric,.Primitive("/")(as.data.frame(numerator_numeric),as.data.frame(denominator_numeric))) %>%
-    dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))  %>%
+  if (!identical(
+    sapply(numerator_nonnumeric, class),
+    sapply(denominator_nonnumeric, class)
+  )) {
+    stop(
+      "Non-numeric elements are not identical."
+    )
+  }
+  if (!identical(
+    numerator_nonnumeric$bootstrap_iteration,
+    denominator_nonnumeric$bootstrap_iteration
+  )) {
+    stop(
+      "Arguments don't come from the same boot_strap"
+    )
+  }
+  cbind(numerator_nonnumeric, .Primitive("/")(
+    as.data.frame(numerator_numeric),
+    as.data.frame(denominator_numeric))) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%
     as_boot_strap()
 }
 
