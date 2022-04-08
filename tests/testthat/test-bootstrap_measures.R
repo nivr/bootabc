@@ -25,6 +25,21 @@ test_that("Output is a data frame", {
   ), "data.frame")
 })
 
+test_that("Output is a boot_strap", {
+  num_groups <- 2
+
+  example_data <- group_by(data.frame(
+    measure = c(rep(
+      stats::runif(7), num_groups
+    )),
+    group = paste0("group_", seq(num_groups))
+  ), group)
+
+  expect_s3_class(bootstrap_measures(example_data,
+                                     kpi1 = mean(measure)
+  ), "boot_strap")
+})
+
 test_that("Output has bootstrap_iterations*num_groups rows", {
   bootstrap_iterations <- 173
   num_groups <- 7
@@ -77,5 +92,20 @@ test_that("boot_strap ratios output expected", {
         group
       ))
     )$measurement
+  )
+})
+
+test_that("Direct CI calculation outputs correct number of rows", {
+  expect_equal(
+    25,
+    nrow(calculate_confidence_intervals(example_boot_strap))
+  )
+})
+
+test_that("Relative CI calculation outputs correct number of rows", {
+  expect_equal(
+    50,
+    nrow(calculate_confidence_intervals(example_boot_strap,
+                                        type = "relative"))
   )
 })

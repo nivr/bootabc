@@ -26,8 +26,8 @@ The value can be:
 }}
 }
 \value{
-Returns a data frame with \code{bootstrap_iterations} rows containing
-columns as defined in \code{...}
+Returns a boot_strap object (a data frame) with
+\code{bootstrap_iterations} rows containing columns as defined in \code{...}
 }
 \description{
 Bootstrap customer data from an A/B-test
