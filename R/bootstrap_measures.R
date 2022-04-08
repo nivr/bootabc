@@ -15,8 +15,8 @@
 #'   * A vector of length `n`, e.g. `quantile()`.
 #'   * A data frame, to add multiple columns from a single expression.
 #'
-#' @return Returns a data frame with `bootstrap_iterations` rows containing
-#' columns as defined in `...`
+#' @return Returns a boot_strap object (a data frame) with
+#' `bootstrap_iterations` rows containing columns as defined in `...`
 #' @export
 #'
 #' @examples
@@ -52,38 +52,49 @@ bootstrap_measures <- function(input_data_frame,
     sapply(function(.x) {
       paste0(group_column, " == \"", .x, "\"")
     })
-  group_sizes <- dplyr::count(input_data_frame,
-                              dplyr::across(dplyr::all_of(group_column)))$n
+  group_sizes <- dplyr::count(
+    input_data_frame,
+    dplyr::across(dplyr::all_of(group_column))
+  )$n
   for (group in seq_along(group_sizes)) {
-    evaluation_expression <- .get_evaluation_string(.get_expressions(...),
-                                                group_column,
-                                                group_names,
-                                                group)
+    evaluation_expression <- .get_evaluation_string(
+      .get_expressions(...),
+      group_column,
+      group_names,
+      group
+    )
     data_table_group <- data_table[eval(parse(text = group_filter[[group]]))]
     i <- 0
     group_result <- data.table::merge.data.table(
-      data.table::data.table(bootstrap_iteration = rep(NA_real_,
-                                                       bootstrap_iterations)),
+      data.table::data.table(bootstrap_iteration = rep(
+        NA_real_,
+        bootstrap_iterations
+      )),
       data_table[0, eval(evaluation_expression)],
       all.x = TRUE
     )
 
     for (i in seq(bootstrap_iterations)) {
       bootstrap_shuffle <- dqrng::dqsample.int(group_sizes[[group]],
-                                               replace = TRUE)
+        replace = TRUE
+      )
       group_result[i, ] <-
-        data_table_group[bootstrap_shuffle,
-                        eval(evaluation_expression)][, bootstrap_iteration := i]
+        data_table_group[
+          bootstrap_shuffle,
+          eval(evaluation_expression)
+        ][, bootstrap_iteration := i]
     }
-    bootstrap_results <- dplyr::bind_rows(bootstrap_results,
-                                   group_result)
-
+    bootstrap_results <- dplyr::bind_rows(
+      bootstrap_results,
+      group_result
+    )
   }
 
   bootstrap_results <- bootstrap_results %>%
-  dplyr::group_by(dplyr::across(dplyr::all_of(group_column)))
+    dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%
+    as_boot_strap()
 
-bootstrap_results
+  bootstrap_results
 }
 
 .get_expressions <- function(...) {
@@ -99,9 +110,11 @@ bootstrap_results
       ".(",
       "bootstrap_iteration = i, ",
       paste0(group_column, " = ", "\"", group_names[[group, 1]], "\", "),
-      paste(paste0(names(evaluation_expressions),
-                   " = ",
-                   evaluation_expressions), collapse = ", "),
+      paste(paste0(
+        names(evaluation_expressions),
+        " = ",
+        evaluation_expressions
+      ), collapse = ", "),
       ")"
     )
   )
@@ -119,7 +132,7 @@ as_boot_strap <- function(x) {
   x
 }
 
-#' Division function for boot.strap objects
+#' Division function for boot_strap objects
 #' @rdname /
 #' @export
 #' @importFrom purrr negate
@@ -223,4 +236,75 @@ as_boot_strap <- function(x) {
     )
   }
   as_boot_strap(boot_strap_ratio)
+}
+
+#' Calculate confidence intervals from a boot_strap object
+#'
+#' @param boot_strap A boot_strap object
+#' @param quantiles A named vector of quantile bounds, each between 0 and 1
+#' @param type One of either `"direct"`, `"relative"`, or `"both"`. Use
+#' `"direct"` to calculate confidence intervals around all measured KPIs
+#' for each group separately, use `"relative"` to calculate the confidence
+#' intervals around the ratios of pair-wise combinations of all measured KPIs
+#' for all groups, and `"both"` to calculate both.
+#'
+#' @return Returns a data frame with quantiles for all groups/comparisons
+#' defined in `type`, for all measures in the boot_strap object.
+#' @export
+#'
+#' @importFrom dplyr summarise group_vars across group_by
+#' @importFrom dplyr all_of bind_rows is.grouped_df
+#' @importFrom magrittr %>%
+calculate_confidence_intervals <- function(boot_strap,
+                                           quantiles = c(
+                                             "lower95" = 0.025,
+                                             "lower80" = 0.1,
+                                             "median" = 0.5,
+                                             "upper80" = 0.9,
+                                             "upper95" = 0.975
+                                           ),
+                                           type = "direct") {
+  group_column <- dplyr::group_vars(boot_strap)
+
+  .calc_relative_cis <- function() {
+    .calc_ratios_of_combns(boot_strap) %>%
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%
+      dplyr::summarise(dplyr::across(
+        dplyr::starts_with("kpi_"),
+        quantile,
+        quantiles
+      ),
+      quantile = names(quantiles),
+      type = "relative",
+      .groups = "drop"
+      )
+  }
+
+  .calc_direct_cis <- function() {
+    boot_strap %>%
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%
+      dplyr::summarise(dplyr::across(
+        dplyr::starts_with("kpi_"),
+        quantile,
+        quantiles
+      ),
+      quantile = names(quantiles),
+      type = "direct",
+      .groups = "drop"
+      )
+  }
+
+  if (type == "both") {
+    boot_direct <- .calc_direct_cis()
+    boot_ratios <- .calc_relative_cis()
+    return(dplyr::bind_rows(boot_direct, boot_ratios))
+  } else if (type == "direct") {
+    boot_direct <- .calc_direct_cis()
+    return(boot_direct)
+  } else if (type == "relative") {
+    boot_ratios <- .calc_relative_cis()
+    return(boot_ratios)
+  } else {
+    stop("Unexpected error.")
+  }
 }
