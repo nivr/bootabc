@@ -136,7 +136,7 @@ as_boot_strap <- function(x) {
 #' @rdname /
 #' @export
 #' @importFrom purrr negate
-#' @importFrom dplyr select ungroup group_vars
+#' @importFrom dplyr select ungroup group_vars bind_cols
 `/.boot_strap` <- function(numerator, denominator) {
   if (!"boot_strap" %in% class(numerator)) {
     stop(
@@ -177,12 +177,13 @@ as_boot_strap <- function(x) {
 
   if ("numeric" %in% class(denominator)) {
     return(
-      cbind(
+      dplyr::bind_cols(
         numerator_nonnumeric,
         .Primitive("/")(as.data.frame(numerator_numeric), denominator)
-      )
-    ) %>%
+      ) %>%
+       dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%
       as_boot_strap()
+    )
   }
 
   if (!identical(
@@ -201,7 +202,7 @@ as_boot_strap <- function(x) {
       "Arguments don't come from the same boot_strap"
     )
   }
-  cbind(numerator_nonnumeric, .Primitive("/")(
+  dplyr::bind_cols(numerator_nonnumeric, .Primitive("/")(
     as.data.frame(numerator_numeric),
     as.data.frame(denominator_numeric))) %>%
     dplyr::group_by(dplyr::across(dplyr::all_of(group_column))) %>%

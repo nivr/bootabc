@@ -9,7 +9,7 @@ test_that("Expect error if input is an ungrouped data frame", {
   ), "grouped data.frame")
 })
 
-test_that("Output is a data frame", {
+test_that("Bootstrap output is a data frame", {
   num_groups <- 3
 
   example_data <- group_by(data.frame(
@@ -25,7 +25,7 @@ test_that("Output is a data frame", {
   ), "data.frame")
 })
 
-test_that("Output is a boot_strap", {
+test_that("Bootstrap output is a boot_strap", {
   num_groups <- 2
 
   example_data <- group_by(data.frame(
@@ -108,4 +108,47 @@ test_that("Relative CI calculation outputs correct number of rows", {
     nrow(calculate_confidence_intervals(example_boot_strap,
                                         type = "relative"))
   )
+})
+
+test_that("Both CI calculation outputs correct number of rows", {
+  expect_equal(
+    75,
+    nrow(calculate_confidence_intervals(example_boot_strap,
+                                        type = "both"))
+  )
+})
+
+test_that("boot_strap/boot_strap division is a boot_strap", {
+  boot_strap_1 <- as_boot_strap(group_by(
+    data.frame(
+      measurement = c(17, 31),
+      group = c("A", "Z"),
+      bootstrap_iteration = c(1, 1)
+    ),
+    group
+  ))
+
+  boot_strap_2 <- as_boot_strap(group_by(
+    data.frame(
+      measurement = c(17, 31),
+      group = c("A", "Z"),
+      bootstrap_iteration = c(1, 1)
+    ),
+    group
+  ))
+
+  expect_s3_class(boot_strap_1/boot_strap_2, "boot_strap")
+})
+
+test_that("boot_strap/integer division is a boot_strap", {
+  boot_strap_1 <- as_boot_strap(group_by(
+    data.frame(
+      measurement = c(17, 31),
+      group = c("A", "Z"),
+      bootstrap_iteration = c(1, 1)
+    ),
+    group
+  ))
+
+  expect_s3_class(boot_strap_1/3, "boot_strap")
 })
