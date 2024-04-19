@@ -133,7 +133,8 @@ as_boot_strap <- function(x) {
 }
 
 #' Division function for boot_strap objects
-#' @rdname /
+#' @param numerator A boot_strap object as the numerator of the division
+#' @param denominator A boot_strap object or a numeric as the denominator
 #' @export
 #' @importFrom purrr negate
 #' @importFrom dplyr select ungroup group_vars
