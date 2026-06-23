@@ -5,12 +5,14 @@
 # pre-computed measures.
 
 boot_strap <- function(draws, cells, base_columns, group_columns,
-                       observed = NULL, registry = list(), meta = list()) {
+                       observed = NULL, registry = list(), meta = list(),
+                       points = NULL) {
   structure(
     list(
       draws = draws,
       cells = cells,
       observed = observed,
+      points = points,
       base_columns = base_columns,
       group_columns = group_columns,
       registry = registry,
@@ -46,6 +48,7 @@ bootstrap_base <- function(data, columns, iterations = 10000L, seed = NULL, na =
     list(
       n = nrow(values),
       observed = colSums(values),
+      points = values,
       sums = as.data.frame(bootstrap_sums(values, iterations, seed = seed, stream = cell))
     )
   })
@@ -63,6 +66,7 @@ bootstrap_base <- function(data, columns, iterations = 10000L, seed = NULL, na =
     base_columns = columns,
     group_columns = dplyr::group_vars(data),
     observed = observed,
+    points = lapply(per_cell, `[[`, "points"),
     meta = list(seed = seed, iterations = iterations)
   )
 }

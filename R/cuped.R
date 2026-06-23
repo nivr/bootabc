@@ -1,17 +1,36 @@
-# CUPED variance reduction. Replace each metric column Y with its adjusted version
-#
-#   Z = Y - theta * (X - mean(X)),   theta = cov(Y, X) / var(X)
-#
-# using a pre-experiment covariate X. theta and mean(X) are estimated once on the
-# pooled data (every arm together), so the adjustment cannot depend on the treatment
-# and the estimate stays unbiased while its variance shrinks by 1 - cor(Y, X)^2.
-#
-# CUPED is a per-customer transform, so it composes with everything downstream: feed
-# the adjusted data straight into bootstrap_base(). Adjusting a ratio's numerator and
-# denominator columns separately is the per-component scheme. A customer missing the
-# covariate keeps their raw value (no adjustment) rather than being dropped, since
-# dropping at differing rates across arms would bias the comparison.
-
+#' Reduce variance with a pre-experiment covariate (CUPED)
+#'
+#' Replaces each metric column `Y` with `Z = Y - theta * (X - mean(X))`, where
+#' `theta = cov(Y, X) / var(X)`. Both `theta` and the covariate mean are estimated once
+#' on the pooled data (all arms together), so the adjustment cannot depend on the
+#' treatment: the point estimate is unchanged in expectation while its variance shrinks
+#' by a factor of `1 - cor(Y, X)^2`.
+#'
+#' CUPED is a per-customer transform, so apply it before [bootstrap_measures()]. For a
+#' ratio KPI, adjust the numerator and denominator columns separately. A customer
+#' missing the covariate keeps their raw value (no adjustment) rather than being dropped
+#' -- dropping at different rates across arms would bias the comparison -- and the call
+#' warns with the per-arm missing rate.
+#'
+#' @param data A grouped data frame (grouped by the variant and any strata).
+#' @param ... Named adjustments mapping each metric column to its pre-experiment
+#'   covariate, e.g. `spend = spend_pre`. Both are unquoted column names.
+#'
+#' @return `data` with the named metric columns replaced by their adjusted values.
+#' @references Deng, Xu, Kohavi and Walker (2013), "Improving the Sensitivity of Online
+#'   Controlled Experiments by Utilizing Pre-Experiment Data." \doi{10.1145/2433396.2433413}
+#' @seealso [bootstrap_measures()]
+#' @export
+#' @examples
+#' pre <- rnorm(100, 50, 10)
+#' customers <- dplyr::group_by(
+#'   data.frame(spend = pre + rnorm(100, 0, 5), spend_pre = pre, variant = "A"),
+#'   variant
+#' )
+#' adjusted <- cuped(customers, spend = spend_pre)
+#' confidence_intervals(
+#'   bootstrap_measures(adjusted, arpu = mean(spend), iterations = 1000, seed = 1)
+#' )
 cuped <- function(data, ...) {
   if (!dplyr::is.grouped_df(data)) {
     stop("`data` must be a grouped data frame.")
