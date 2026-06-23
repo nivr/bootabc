@@ -1,11 +1,19 @@
 Package: bootabc
-Title: What the Package Does (One Line, Title Case)
-Version: 0.9.0
+Title: Bootstrap Experiment Confidence Intervals
+Version: 0.9.5
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
+Description: Computes bootstrap confidence intervals for key performance
+    indicators (KPIs) measured in online controlled experiments (A/B tests),
+    where data is aggregated to one row per customer or visitor. Supports
+    compound KPIs defined as ratios of sums, such as spend per active day, and
+    comparisons between experiment variants. Resampling runs through a streaming
+    'C++' kernel so that large experiments remain tractable. Variance can be
+    reduced using pre-experiment data via the CUPED method of
+    Deng, Xu, Kohavi and Walker (2013) <doi:10.1145/2433396.2433413>.
 License: MIT + file LICENSE
+URL: https://github.com/nivr/bootabc
+BugReports: https://github.com/nivr/bootabc/issues
 Depends:
     R (>= 4.0),
     dplyr (>= 1.0.0)

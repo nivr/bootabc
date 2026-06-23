@@ -10,3 +10,4 @@
 ^pkgdown$
 ^DESIGN\.md$
 ^legacy$
+^\.claude$
