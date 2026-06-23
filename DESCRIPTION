@@ -14,8 +14,14 @@ Imports:
     rlang (>= 1.0.0),
     data.table (>= 1.14.2),
     magrittr (>= 2.0.2),
-    dqrng (>= 0.3.0)
-Suggests: 
+    dqrng (>= 0.3.0),
+    Rcpp
+LinkingTo:
+    Rcpp,
+    dqrng,
+    BH,
+    sitmo
+Suggests:
     covr,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

@@ -26,6 +26,9 @@ bootstrap_base <- function(data, columns, iterations = 10000L, seed = NULL) {
   if (length(unknown)) {
     stop("Unknown column(s): ", paste(unknown, collapse = ", "), ".")
   }
+  if (is.null(seed)) {
+    seed <- sample.int(.Machine$integer.max, 1L)
+  }
 
   keys <- dplyr::group_keys(data)
   groups <- dplyr::group_split(data)
