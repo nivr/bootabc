@@ -1,31 +1,18 @@
 # Exact bootstrap kernel.
 #
-# Every supported KPI is a smooth function of per-customer column sums, so the
-# kernel never sees a KPI expression: it resamples the customers in one cell and
-# returns the summed base columns for each draw. The derivation layer turns those
-# sums into means, ratios, weighted means and so on.
+# Resamples the customers in one cell and returns the summed base columns for each
+# draw. The streaming C++ implementation (src/bootstrap.cpp) does the random draws in
+# its own loop, so memory stays O(columns) per iteration. Every supported KPI is a
+# smooth function of these sums, so the kernel never evaluates a KPI expression.
 
-resample_indices <- function(n, iterations, seed = NULL, stream = NULL) {
-  if (!is.null(seed)) {
-    dqrng::dqset.seed(seed, stream = stream)
-  }
-  matrix(dqrng::dqsample.int(n, n * iterations, replace = TRUE), nrow = n)
-}
-
-sum_resamples <- function(values, indices) {
-  counts <- matrix(apply(indices, 2, tabulate, nbins = nrow(values)), nrow = nrow(values))
-  sums <- crossprod(counts, values)
-  colnames(sums) <- colnames(values)
-  sums
-}
-
-bootstrap_sums <- function(values, iterations, seed = NULL, stream = NULL) {
+bootstrap_sums <- function(values, iterations, seed, stream = 0L) {
   values <- as_value_matrix(values)
   if (length(iterations) != 1 || iterations < 1) {
     stop("`iterations` must be a single positive number.")
   }
-  indices <- resample_indices(nrow(values), iterations, seed, stream)
-  sum_resamples(values, indices)
+  sums <- bootstrap_sums_cpp(values, as.integer(iterations), as.double(seed), as.double(stream))
+  colnames(sums) <- colnames(values)
+  sums
 }
 
 as_value_matrix <- function(values) {
