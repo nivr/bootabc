@@ -65,3 +65,37 @@ test_that("non-finite draws are excluded and warned about", {
   expect_warning(ci <- confidence_intervals(bs, min_n = 1L), "non-finite")
   expect_true(ci$nonfinite > 0)
 })
+
+test_that("the acceleration is the standardised jackknife skewness", {
+  expect_equal(acceleration(c(1, 2, 3)), 0)  # symmetric leave-one-out values
+  jack <- c(1, 1, 4)
+  centred <- mean(jack) - jack
+  expect_equal(acceleration(jack), sum(centred^3) / (6 * sum(centred^2)^1.5))
+})
+
+test_that("bca leaves the quantile levels unchanged when bias and acceleration vanish", {
+  draws <- c(1, 2, 3, 4)  # estimate 2.5 splits the draws evenly, so z0 = 0
+  probs <- c(lo = 0.1, mid = 0.5, hi = 0.9)
+
+  expect_equal(bca_levels(draws, 2.5, c(1, 2, 3), probs), probs)  # symmetric jack -> a = 0
+})
+
+test_that("bca intervals are ordered and carry the observed estimate", {
+  data <- dplyr::group_by(data.frame(x = as.double(1:40), variant = "A"), variant)
+  bs <- derive(bootstrap_base(data, "x", iterations = 3000, seed = 1), m = x / n)
+
+  ci <- confidence_intervals(bs, method = "bca", min_n = 1L)
+
+  expect_true(all(ci$lower95 <= ci$median & ci$median <= ci$upper95))
+  expect_equal(ci$estimate, mean(1:40))
+})
+
+test_that("bca is unavailable for comparison results", {
+  data <- dplyr::group_by(
+    data.frame(x = as.double(1:10), variant = rep(c("A", "B"), each = 5)), variant
+  )
+  bs <- derive(bootstrap_base(data, "x", iterations = 500, seed = 1), m = x / n)
+  cmp <- compare(bs, variant, reference = "A")
+
+  expect_error(confidence_intervals(cmp, method = "bca"), "per-customer")
+})
