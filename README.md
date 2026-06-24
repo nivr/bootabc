@@ -1,71 +1,165 @@
-
 <!-- README.md is generated from README.Rmd. Please edit that file -->
+
+
 
 # bootabc
 
 <!-- badges: start -->
-
-[![Lifecycle:
-experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![CRAN
-status](https://www.r-pkg.org/badges/version/bootabc)](https://CRAN.R-project.org/package=bootabc)
-[![Codecov test
-coverage](https://codecov.io/gh/nivr/bootabc/branch/master/graph/badge.svg)](https://app.codecov.io/gh/nivr/bootabc?branch=master)
-[![R-CMD-check](https://github.com/nivr/bootabc/workflows/R-CMD-check/badge.svg)](https://github.com/nivr/bootabc/actions)
+[![R-CMD-check](https://github.com/nivr/bootabc/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/nivr/bootabc/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
-The goal of bootabc is to bootstrap customer/visitor measures in
-hypothesis testing. Data is gathered throughout the duration of the test
-and aggregated on a per customer/visitor level.
+bootabc computes bootstrap confidence intervals for the KPIs of an A/B test, from data
+aggregated to one row per customer. It handles compound ratio KPIs (such as spend per
+active day), variant comparisons (lift and difference), CUPED variance reduction, and BCa
+intervals -- and it runs the resampling through a streaming C++ kernel, so a
+million-customer experiment bootstraps in seconds.
 
-## Performance example
+Every supported KPI is a ratio of per-customer column sums, so the bootstrap resamples
+those **sums** rather than re-evaluating the statistic on each resample. That makes the
+engine exact (no normal or sqrt(N) approximation) and fast, and lets KPIs be written in a
+small, safe grammar instead of parsed from free-form strings.
 
-To try it out for yourself with fake (generated) data and get a feel for
-the performance, try the following:
+## Installation
 
-    library(tidyverse)
-    library(profvis)
+``` r
+# requires a C++ toolchain (Rtools on Windows)
+# install.packages("remotes")
+remotes::install_github("nivr/bootabc")
+```
 
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+## Quick start
 
-    sample_size_roughly <- 250000
-    num_groups <- 4
-    num_kpis <- 4
-    bootstrap_iterations <- 1000
 
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+``` r
+library(bootabc)
+library(dplyr)
 
-    group_names <- LETTERS[1:num_groups]
-    kpi_names <- paste0("kpi_", letters[1:num_kpis])
-    sample_sizes <- ceiling(stats::runif(num_groups, floor(sample_size_roughly * 0.9), ceiling(sample_size_roughly * 1.1)))
+set.seed(1)
+customers <- group_by(
+  data.frame(
+    spend       = rgamma(4000, shape = 2),
+    active_days = rpois(4000, 4) + 1,
+    variant     = sample(c("control", "treatment"), 4000, replace = TRUE)
+  ),
+  variant
+)
 
-    kpis <- sample_sizes %>%
-      sum() %>%
-      stats::runif() %>%
-      rep(num_kpis) %>%
-      matrix(ncol = num_kpis, nrow = sum(sample_sizes))
-    colnames(kpis) <- kpi_names
+result <- bootstrap_measures(
+  customers,
+  arpu          = mean(spend),                   # a simple mean
+  spend_per_day = sum(spend) / sum(active_days), # a compound ratio KPI
+  comparison = variant, reference = "control",
+  iterations = 2000, seed = 1
+)
 
-    input_data_frame <- data.frame(
-      cid = sample(1:sum(sample_sizes), sum(sample_sizes)),
-      experiment_variant = rep(group_names, sample_sizes)
-    ) %>%
-      cbind(kpis)
+result
+#> <boot_strap> variant comparison
+#>   groups:     variant
+#>   cells:      2
+#>   iterations: 2000
+#>   KPIs:       arpu, spend_per_day
+#>   comparison: variant (vs control)
+#> Summarise with confidence_intervals().
 
-    expr <- rlang::parse_expr(paste0(
-      "bootstrap_measures(group_by(input_data_frame,experiment_variant), ",
-      paste0(kpi_names, "_aggr", " = ", "mean(", kpi_names, ")", collapse = ", "),
-      ", bootstrap_iterations = bootstrap_iterations",
-      ")"
-    ))
+confidence_intervals(result, probs = c(lower = 0.025, upper = 0.975))
+#>                variant      .type           kpi     estimate      lower      upper    n reliable nonfinite
+#> 1 treatment vs control difference          arpu -0.052463716 -0.1410089 0.02950770 1947     TRUE         0
+#> 2 treatment vs control difference spend_per_day -0.005527471 -0.0265773 0.01478313 1947     TRUE         0
+#> 3 treatment vs control      ratio          arpu  0.974365528  0.9325827 1.01482755 1947     TRUE         0
+#> 4 treatment vs control      ratio spend_per_day  0.986514436  0.9379736 1.03670204 1947     TRUE         0
+```
 
-    profvis::profvis({
-      testthing <- eval(expr)
-    })
+A `ratio` interval that straddles 1 (or a `difference` that straddles 0) means the effect
+is not distinguishable from noise -- as here, where the data is null.
 
-## Code of Conduct
+## The measure grammar
 
-Please note that the bootabc project is released with a [Contributor
-Code of
-Conduct](https://contributor-covenant.org/version/2/0/CODE_OF_CONDUCT.html).
-By contributing to this project, you agree to abide by its terms.
+KPIs are built from `sum()`, `mean()`, `weighted.mean()`, and division:
+
+``` r
+bootstrap_measures(
+  customers,
+  revenue       = sum(spend),
+  arpu          = mean(spend),
+  spend_per_day = sum(spend) / sum(active_days),
+  weighted      = weighted.mean(spend, active_days)
+)
+```
+
+Anything outside the grammar -- `median()`, `quantile()`, a bare column, arithmetic other
+than `/` -- is rejected, because only ratios of sums have an exact sum-resampling
+bootstrap.
+
+## Comparisons and strata
+
+Name a `comparison` column to get within-stratum lift (ratio) and difference
+distributions; pass a `reference` level to compare each arm against it (otherwise all
+pairs are formed). Group by extra columns to estimate each stratum separately:
+
+``` r
+bootstrap_measures(
+  group_by(customers, country, variant),
+  arpu = mean(spend),
+  comparison = variant, reference = "control"
+)
+```
+
+## CUPED variance reduction
+
+With a pre-experiment covariate, de-noise the metric before bootstrapping -- the point
+estimate is unchanged in expectation while the interval narrows:
+
+``` r
+adjusted <- cuped(customers, spend = spend_pre)
+bootstrap_measures(adjusted, arpu = mean(spend), comparison = variant, reference = "control")
+```
+
+## Interval methods
+
+`confidence_intervals(result, method = ...)` supports:
+
+- `"percentile"` (default) -- quantiles of the draws
+- `"basic"` -- those quantiles reflected about the observed estimate
+- `"bca"` -- bias-corrected and accelerated, from the per-customer jackknife (a two-sample
+  jackknife for comparisons)
+
+## Plotting
+
+
+``` r
+plot_intervals(confidence_intervals(result))
+```
+
+<div class="figure">
+<img src="man/figures/README-forest-1.png" alt="Lift (ratio) and difference for each KPI, with 95% intervals." width="100%" />
+<p class="caption">Lift (ratio) and difference for each KPI, with 95% intervals.</p>
+</div>
+
+## Performance
+
+Exact resampling is unavoidably `O(iterations x customers x columns)`, but the streaming
+kernel keeps memory at `O(columns)` per iteration and runs in C++. Single-threaded timings
+(indicative; hardware varies):
+
+| customers | iterations | KPIs |  time |
+|----------:|-----------:|-----:|------:|
+|   100,000 |     10,000 |    2 |  2.3s |
+| 1,000,000 |     10,000 |    2 | 26.4s |
+
+``` r
+n <- 1e6
+data <- group_by(data.frame(
+  spend = rgamma(n, 2), active_days = rpois(n, 4) + 1,
+  variant = sample(c("control", "treatment"), n, replace = TRUE)
+), variant)
+
+system.time(bootstrap_measures(
+  data, arpu = mean(spend), spend_per_day = sum(spend) / sum(active_days),
+  comparison = variant, reference = "control", iterations = 10000, seed = 1
+))
+```
+
+## License
+
+MIT.

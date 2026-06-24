@@ -67,17 +67,17 @@ test_that("non-finite draws are excluded and warned about", {
 })
 
 test_that("the acceleration is the standardised jackknife skewness", {
-  expect_equal(acceleration(c(1, 2, 3)), 0)  # symmetric leave-one-out values
+  expect_equal(acceleration(list(c(1, 2, 3))), 0)  # symmetric leave-one-out values
   jack <- c(1, 1, 4)
   centred <- mean(jack) - jack
-  expect_equal(acceleration(jack), sum(centred^3) / (6 * sum(centred^2)^1.5))
+  expect_equal(acceleration(list(jack)), sum(centred^3) / (6 * sum(centred^2)^1.5))
 })
 
 test_that("bca leaves the quantile levels unchanged when bias and acceleration vanish", {
   draws <- c(1, 2, 3, 4)  # estimate 2.5 splits the draws evenly, so z0 = 0
   probs <- c(lo = 0.1, mid = 0.5, hi = 0.9)
 
-  expect_equal(bca_levels(draws, 2.5, c(1, 2, 3), probs), probs)  # symmetric jack -> a = 0
+  expect_equal(bca_levels(draws, 2.5, list(c(1, 2, 3)), probs), probs)  # symmetric jack -> a = 0
 })
 
 test_that("bca intervals are ordered and carry the observed estimate", {
@@ -90,12 +90,21 @@ test_that("bca intervals are ordered and carry the observed estimate", {
   expect_equal(ci$estimate, mean(1:40))
 })
 
-test_that("bca is unavailable for comparison results", {
+test_that("acceleration pools influence across the two samples", {
+  expect_equal(acceleration(list(c(1, 2, 3), c(2, 4, 6))), 0)  # symmetric arms -> a = 0
+})
+
+test_that("bca intervals work for comparison results via a two-sample jackknife", {
   data <- dplyr::group_by(
-    data.frame(x = as.double(1:10), variant = rep(c("A", "B"), each = 5)), variant
+    data.frame(x = as.double(1:20), variant = rep(c("A", "B"), each = 10)), variant
   )
-  bs <- derive(bootstrap_base(data, "x", iterations = 500, seed = 1), m = x / n)
+  bs <- derive(bootstrap_base(data, "x", iterations = 3000, seed = 1), m = x / n)
   cmp <- compare(bs, variant, reference = "A")
 
-  expect_error(confidence_intervals(cmp, method = "bca"), "per-customer")
+  ci <- confidence_intervals(cmp, method = "bca", min_n = 1L)
+
+  expect_setequal(ci$.type, c("ratio", "difference"))
+  expect_true(all(ci$lower95 <= ci$median & ci$median <= ci$upper95))
+  expect_equal(ci$estimate[ci$.type == "difference"], mean(11:20) - mean(1:10))  # 10
+  expect_equal(ci$estimate[ci$.type == "ratio"], mean(11:20) / mean(1:10))       # 15.5 / 5.5
 })
