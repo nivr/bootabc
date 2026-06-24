@@ -13,13 +13,15 @@
 bootabc computes bootstrap confidence intervals for the KPIs of an A/B test, from data
 aggregated to one row per customer. It handles compound ratio KPIs (such as spend per
 active day), variant comparisons (lift and difference), CUPED variance reduction, and BCa
-intervals -- and it runs the resampling through a streaming C++ kernel, so a
-million-customer experiment bootstraps in seconds.
+intervals, with the resampling done in a streaming C++ kernel.
 
-Every supported KPI is a ratio of per-customer column sums, so the bootstrap resamples
-those **sums** rather than re-evaluating the statistic on each resample. That makes the
-engine exact (no normal or sqrt(N) approximation) and fast, and lets KPIs be written in a
-small, safe grammar instead of parsed from free-form strings.
+bootabc works on data with **one row per customer**: each column is a per-customer
+aggregate, either a sum (e.g. total `spend`) or a count (e.g. `active_days`, the number of
+days that customer was active). A KPI such as `sum(spend) / sum(active_days)` is then total
+spend divided by total active-days across customers -- the per-customer day count is made
+when you build the table, not inside the KPI. Because every KPI is a ratio of column sums,
+the bootstrap resamples those sums rather than re-evaluating the statistic, and the
+interval is exact for the supported grammar.
 
 ## Installation
 

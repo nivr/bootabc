@@ -1,18 +1,16 @@
-# The front door. bootstrap_measures() is the one call most users make: it compiles
-# each KPI in the measure grammar (see grammar.R), unions the columns those measures
-# need, synthesises any weighted-mean product columns, then runs the low-level pipeline
-# -- bootstrap_base() to resample the sums, derive() to rebuild the KPIs, and compare()
-# to form within-stratum lifts when a comparison dimension is named. The result is a
-# boot_strap object ready for confidence_intervals().
+# bootstrap_measures() is the package entry point. It compiles each KPI in the measure
+# grammar (see grammar.R), unions the columns those measures need, synthesises any
+# weighted-mean product columns, then runs the pipeline -- bootstrap_base() to resample
+# the sums, derive() to rebuild the KPIs, and compare() to form within-stratum lifts when
+# a comparison dimension is named -- returning a boot_strap ready for confidence_intervals().
 
 #' Bootstrap KPIs from an A/B test
 #'
 #' Resamples customers within each cell and turns the bootstrapped column sums into a
 #' KPI distribution ready for confidence intervals. Each KPI is written in the measure
-#' grammar -- `sum()`, `mean()`, `weighted.mean()`, and division -- so every measure is
-#' a ratio of sums with an exact bootstrap. The kernel resamples those sums rather than
-#' re-evaluating the statistic on each resample, which is what keeps large experiments
-#' tractable.
+#' grammar -- `sum()`, `mean()`, `weighted.mean()`, and division -- so every measure is a
+#' ratio of sums with an exact bootstrap; the kernel resamples those sums rather than
+#' re-evaluating the statistic on each resample.
 #'
 #' @param data A grouped data frame with one row per customer, grouped by the variant
 #'   and any strata. Group by every dimension you want estimated separately.

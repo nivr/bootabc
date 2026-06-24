@@ -1,16 +1,16 @@
 Package: bootabc
-Title: Bootstrap Experiment Confidence Intervals
+Title: Bootstrap Confidence Intervals for Online Experiments
 Version: 0.9.5
-Authors@R: 
+Authors@R:
     person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: Computes bootstrap confidence intervals for key performance
-    indicators (KPIs) measured in online controlled experiments (A/B tests),
-    where data is aggregated to one row per customer or visitor. Supports
-    compound KPIs defined as ratios of sums, such as spend per active day, and
-    comparisons between experiment variants. Resampling runs through a streaming
-    'C++' kernel so that large experiments remain tractable. Variance can be
-    reduced using pre-experiment data via the CUPED method of
-    Deng, Xu, Kohavi and Walker (2013) <doi:10.1145/2433396.2433413>.
+Description: Computes bootstrap confidence intervals for the key performance
+    indicators (KPIs) of online controlled experiments (A/B tests), from data
+    aggregated to one row per customer. Supports compound KPIs defined as ratios
+    of sums, such as spend per active day, comparisons between variants (lift and
+    difference), and bias-corrected and accelerated ('BCa') intervals. Variance
+    can be reduced with pre-experiment data using the 'CUPED' method of Deng, Xu,
+    Kohavi and Walker (2013) <doi:10.1145/2433396.2433413>. Resampling runs in a
+    streaming 'C++' kernel.
 License: MIT + file LICENSE
 URL: https://github.com/nivr/bootabc
 BugReports: https://github.com/nivr/bootabc/issues
@@ -23,9 +23,9 @@ Imports:
     stats,
     utils
 LinkingTo:
+    BH,
     Rcpp,
     dqrng,
-    BH,
     sitmo
 Suggests:
     covr,
@@ -33,5 +33,6 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Encoding: UTF-8
+Language: en-GB
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0

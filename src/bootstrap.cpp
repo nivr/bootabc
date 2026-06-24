@@ -3,7 +3,7 @@
 // For one cell of n customers, draw `iterations` resamples with replacement and
 // return the summed base columns for each draw. The random draws happen here, in
 // the loop, so memory stays O(columns) per iteration -- no n x iterations index or
-// count matrix is ever built, which is what lets the 5M-customer case run.
+// count matrix is ever built.
 //
 // Seeding with (seed, stream) gives each cell an independent, repeatable stream, so
 // results do not depend on cell order or thread count.

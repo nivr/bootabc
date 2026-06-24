@@ -32,7 +32,7 @@ non-finite and so excluded from the quantiles).
 Turns a \code{\link[=bootstrap_measures]{bootstrap_measures()}} result into a tidy table: one row per cell (or
 comparison) and KPI, with the observed point estimate and the requested quantiles.
 Per-arm intervals come from a plain result; lift / difference intervals come from a
-compared one -- "direct" versus "relative" is simply which object you pass.
+compared one -- "direct" versus "relative" is which object you pass.
 }
 \details{
 Bootstrap intervals get unreliable when a cell is small (the resample space is
