@@ -12,8 +12,8 @@
 #' @param boot_strap A `boot_strap` object from [bootstrap_measures()].
 #' @param probs Named quantile probabilities; each becomes an interval column.
 #' @param method `"percentile"` (quantiles of the draws), `"basic"` (those quantiles
-#'   reflected about the observed estimate), or `"bca"` (bias-corrected and accelerated;
-#'   needs per-customer data, so it is not available for comparison results).
+#'   reflected about the observed estimate), or `"bca"` (bias-corrected and accelerated,
+#'   using the per-customer jackknife -- a two-sample jackknife for comparisons).
 #' @param min_n Cells with fewer than `min_n` customers are flagged `reliable = FALSE`
 #'   and trigger a warning.
 #'
@@ -42,8 +42,8 @@ confidence_intervals <- function(boot_strap,
     stop("The '", method, "' method needs the observed estimate, which this object lacks.")
   }
   if (method == "bca" && is.null(boot_strap$points)) {
-    stop("The 'bca' method needs per-customer data, which is unavailable for comparison ",
-         "results; use \"percentile\" or \"basic\".", call. = FALSE)
+    stop("The 'bca' method needs the per-customer data that bootstrap_measures() retains; ",
+         "this object lacks it.", call. = FALSE)
   }
   if (is.null(names(probs)) || any(names(probs) == "")) {
     names(probs) <- paste0("q", probs * 100)
@@ -67,7 +67,7 @@ confidence_intervals <- function(boot_strap,
     for (kpi in kpis) {
       estimate <- if (is.null(estimates)) NA_real_ else estimates[[kpi]][cell]
       jack <- if (method == "bca") {
-        jackknife(points[[cell]], boot_strap$registry[[kpi]], boot_strap$base_columns)
+        cell_jackknife(points[[cell]], boot_strap$registry[[kpi]], boot_strap$base_columns)
       }
       rows[[length(rows) + 1L]] <- interval_row(
         keys[cell, , drop = FALSE], kpi, cells[[cell]][[kpi]],
@@ -125,13 +125,19 @@ bca_levels <- function(draws, estimate, jack, probs) {
   stats::pnorm(z0 + (z0 + z) / (1 - a * (z0 + z)))
 }
 
+# Acceleration from the (possibly two-sample) jackknife: pool the per-sample empirical
+# influence values, each scaled by its sample size so unequal arms combine correctly,
+# then take their standardised skewness. `jack` is a list with one element per resampled
+# sample -- one for a direct cell, two for a comparison.
 acceleration <- function(jack) {
-  centred <- mean(jack) - jack
-  scatter <- sum(centred^2)
+  influence <- unlist(lapply(jack, function(values) {
+    (length(values) - 1) * (mean(values) - values)
+  }))
+  scatter <- sum(influence^2)
   if (!is.finite(scatter) || scatter == 0) {
     return(NaN)
   }
-  sum(centred^3) / (6 * scatter^1.5)
+  sum(influence^3) / (6 * scatter^1.5)
 }
 
 # Jackknife KPI values: recompute the KPI with each customer left out by subtracting
@@ -145,6 +151,29 @@ jackknife <- function(points, derivation, base_columns) {
   )
   loo$n <- nrow(points) - 1L
   eval(derivation, loo)
+}
+
+# Per-cell jackknife values for the acceleration. A direct cell stores a matrix, so the
+# jackknife is single-sample; a comparison cell stores both arms, so each arm is
+# jackknifed with the other held fixed and the two influence sets are pooled.
+cell_jackknife <- function(points, derivation, base_columns) {
+  if (is.matrix(points)) {
+    return(list(jackknife(points, derivation, base_columns)))
+  }
+  combine <- if (points$type == "ratio") `/` else `-`
+  focal <- arm_estimate(points$focal, derivation, base_columns)
+  base <- arm_estimate(points$base, derivation, base_columns)
+  list(
+    combine(jackknife(points$focal, derivation, base_columns), base),
+    combine(focal, jackknife(points$base, derivation, base_columns))
+  )
+}
+
+arm_estimate <- function(points, derivation, base_columns) {
+  totals <- colSums(points)
+  env <- stats::setNames(as.list(totals[base_columns]), base_columns)
+  env$n <- nrow(points)
+  eval(derivation, env)
 }
 
 cell_points <- function(boot_strap, key, groups) {

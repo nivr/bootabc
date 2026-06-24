@@ -22,6 +22,41 @@ boot_strap <- function(draws, cells, base_columns, group_columns,
   )
 }
 
+#' Print a bootstrap distribution
+#'
+#' Shows a one-screen summary -- the grouping, the number of cells, the iterations, and
+#' the derived KPIs -- rather than the (large) resampled draws the object holds.
+#'
+#' @param x A `boot_strap` object.
+#' @param ... Ignored.
+#' @return `x`, invisibly.
+#' @examples
+#' customers <- dplyr::group_by(
+#'   data.frame(spend = rgamma(50, 2), variant = rep(c("A", "B"), each = 25)),
+#'   variant
+#' )
+#' bootstrap_measures(customers, arpu = mean(spend), iterations = 500, seed = 1)
+#' @export
+print.boot_strap <- function(x, ...) {
+  comparison <- x$meta$comparison
+  cat(if (is.null(comparison)) "<boot_strap> bootstrap distribution"
+      else "<boot_strap> variant comparison", "\n", sep = "")
+  cat("  groups:     ", paste(setdiff(x$group_columns, ".type"), collapse = ", "), "\n", sep = "")
+  cat("  cells:      ", if (is.null(x$cells)) 0L else nrow(x$cells), "\n", sep = "")
+  iterations <- x$meta$iterations
+  cat("  iterations: ", if (is.null(iterations)) "?" else iterations, "\n", sep = "")
+  kpis <- names(x$registry)
+  cat("  KPIs:       ",
+      if (length(kpis)) paste(kpis, collapse = ", ") else "(none derived yet)", "\n", sep = "")
+  if (!is.null(comparison)) {
+    cat("  comparison: ", comparison,
+        if (is.null(x$meta$reference)) " (all pairs)" else paste0(" (vs ", x$meta$reference, ")"),
+        "\n", sep = "")
+  }
+  cat("Summarise with confidence_intervals().\n")
+  invisible(x)
+}
+
 bootstrap_base <- function(data, columns, iterations = 10000L, seed = NULL, na = "error") {
   if (!dplyr::is.grouped_df(data)) {
     stop("`data` must be a grouped data frame; group by the variant (and any strata).")

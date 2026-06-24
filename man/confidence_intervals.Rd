@@ -17,8 +17,8 @@ confidence_intervals(
 \item{probs}{Named quantile probabilities; each becomes an interval column.}
 
 \item{method}{\code{"percentile"} (quantiles of the draws), \code{"basic"} (those quantiles
-reflected about the observed estimate), or \code{"bca"} (bias-corrected and accelerated;
-needs per-customer data, so it is not available for comparison results).}
+reflected about the observed estimate), or \code{"bca"} (bias-corrected and accelerated,
+using the per-customer jackknife -- a two-sample jackknife for comparisons).}
 
 \item{min_n}{Cells with fewer than \code{min_n} customers are flagged \code{reliable = FALSE}
 and trigger a warning.}

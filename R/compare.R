@@ -32,12 +32,14 @@ compare <- function(.boot_strap, comparison, reference = NULL,
                   keep = character(0))
   }
 
+  cells <- comparison_cells(.boot_strap$cells, comparison, strata, pairs, types)
   boot_strap(
     draws = draws,
-    cells = comparison_cells(.boot_strap$cells, comparison, strata, pairs, types),
+    cells = cells,
     base_columns = .boot_strap$base_columns,
     group_columns = c(strata, comparison, ".type"),
     observed = observed,
+    points = comparison_points(.boot_strap, cells, comparison, strata),
     registry = .boot_strap$registry,
     meta = c(.boot_strap$meta, list(comparison = comparison, reference = reference))
   )
@@ -127,4 +129,30 @@ comparison_cells <- function(input_cells, comparison, strata, pairs, types) {
     }
   }
   do.call(rbind, out)
+}
+
+# For BCa on a comparison, each comparison cell needs both arms' per-customer values so
+# the acceleration can come from a two-sample jackknife. The arms are looked up from the
+# input cells by variant (and stratum), keeping references to the original matrices
+# rather than copying them.
+comparison_points <- function(.boot_strap, cells, comparison, strata) {
+  if (is.null(.boot_strap$points)) {
+    return(NULL)
+  }
+  lapply(seq_len(nrow(cells)), function(row) {
+    variants <- strsplit(cells[[comparison]][row], " vs ", fixed = TRUE)[[1]]
+    list(
+      focal = .boot_strap$points[[arm_index(.boot_strap$cells, cells[row, ], comparison, strata, variants[1])]],
+      base  = .boot_strap$points[[arm_index(.boot_strap$cells, cells[row, ], comparison, strata, variants[2])]],
+      type  = cells[[".type"]][row]
+    )
+  })
+}
+
+arm_index <- function(input_cells, cell, comparison, strata, variant) {
+  match <- input_cells[[comparison]] == variant
+  for (stratum in strata) {
+    match <- match & (input_cells[[stratum]] == cell[[stratum]])
+  }
+  which(match)[1]
 }
