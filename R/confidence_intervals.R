@@ -3,7 +3,7 @@
 #' Turns a [bootstrap_measures()] result into a tidy table: one row per cell (or
 #' comparison) and KPI, with the observed point estimate and the requested quantiles.
 #' Per-arm intervals come from a plain result; lift / difference intervals come from a
-#' compared one -- "direct" versus "relative" is simply which object you pass.
+#' compared one -- "direct" versus "relative" is which object you pass.
 #'
 #' Bootstrap intervals get unreliable when a cell is small (the resample space is
 #' coarse), so each row carries its `n` and a `reliable` flag rather than being silently

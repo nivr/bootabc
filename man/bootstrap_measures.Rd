@@ -50,10 +50,9 @@ KPIs -- compared across variants when \code{comparison} is given. Pass it to
 \description{
 Resamples customers within each cell and turns the bootstrapped column sums into a
 KPI distribution ready for confidence intervals. Each KPI is written in the measure
-grammar -- \code{sum()}, \code{mean()}, \code{weighted.mean()}, and division -- so every measure is
-a ratio of sums with an exact bootstrap. The kernel resamples those sums rather than
-re-evaluating the statistic on each resample, which is what keeps large experiments
-tractable.
+grammar -- \code{sum()}, \code{mean()}, \code{weighted.mean()}, and division -- so every measure is a
+ratio of sums with an exact bootstrap; the kernel resamples those sums rather than
+re-evaluating the statistic on each resample.
 }
 \examples{
 pre <- rnorm(200, 50, 10)
