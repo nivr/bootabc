@@ -4,22 +4,32 @@
 \alias{plot_intervals}
 \title{Plot confidence intervals as a forest plot}
 \usage{
-plot_intervals(intervals, lower = "lower95", upper = "upper95")
+plot_intervals(
+  intervals,
+  types = c("ratio", "difference"),
+  outer = c("lower95", "upper95"),
+  inner = c("lower80", "upper80")
+)
 }
 \arguments{
 \item{intervals}{A data frame from \code{\link[=confidence_intervals]{confidence_intervals()}}.}
 
-\item{lower, upper}{Names of the interval-bound columns to draw, matching the \code{probs}
-you summarised with (default the 95\% bounds).}
+\item{types}{For a comparison, which panels to show: any of \code{"ratio"} and
+\code{"difference"} (default both). Ignored for per-arm (non-comparison) results.}
+
+\item{outer, inner}{Names of the outer and inner interval-bound columns, each as
+\code{c(lower, upper)}, matching the \code{probs} you summarised with. The inner band is
+omitted when its columns are absent.}
 }
 \value{
 A \link[ggplot2:ggplot]{ggplot2::ggplot} object.
 }
 \description{
-Draws each cell or comparison as a point estimate with its interval as a horizontal
-range, faceted by KPI -- and, for comparisons, by ratio versus difference, with a
-dashed no-effect line at 1 (ratio) and 0 (difference). Pass the output of
-\code{\link[=confidence_intervals]{confidence_intervals()}}.
+Lays the KPIs down the y-axis and draws each as its point estimate with a thick inner
+interval (default 80\%) and a thin outer interval (default 95\%) -- so the movements of
+all KPIs for one comparison can be read together. For a single comparison or arm the
+label becomes the title; comparisons are split into ratio and difference panels, each
+with a dashed no-effect line (at 1 and 0). Pass the output of \code{\link[=confidence_intervals]{confidence_intervals()}}.
 }
 \examples{
 \dontshow{if (requireNamespace("ggplot2", quietly = TRUE)) withAutoprint(\{ # examplesIf}
